@@ -1,0 +1,85 @@
+//
+//  ExtractionTests.swift
+//  YouTubeKit
+//
+//  Created by Alexander Eichhorn on 04.09.21.
+//
+
+import XCTest
+@testable import YouTubeKit
+
+@available(iOS 15.0, watchOS 8.0, tvOS 15.0, macOS 12.0, *)
+final class ExtractionTests: XCTestCase {
+    
+    func testExtractVideoID() {
+        let url = "https://www.youtube.com/watch?v=2lAe1cqCOXo"
+        let videoID = Extraction.extractVideoID(from: url)
+        XCTAssertEqual(videoID, "2lAe1cqCOXo")
+    }
+
+    func testDescramblerExcludesDRMFormatsBeforeMergingClients() throws {
+        let json = #"""
+        [
+            {
+                "formats": [
+                    {"itag": 18, "mimeType": "video/mp4", "url": "https://example.com/protected-video", "drmFamilies": ["WIDEVINE"]}
+                ],
+                "adaptiveFormats": [
+                    {"itag": 140, "mimeType": "audio/mp4", "url": "https://example.com/protected-audio", "drmFamilies": ["WIDEVINE"]}
+                ]
+            },
+            {
+                "formats": [
+                    {"itag": 18, "mimeType": "video/mp4", "url": "https://example.com/clear-video"}
+                ],
+                "adaptiveFormats": [
+                    {"itag": 140, "mimeType": "audio/mp4", "url": "https://example.com/clear-audio", "drmFamilies": []}
+                ]
+            }
+        ]
+        """#
+        let responses = try JSONDecoder().decode([InnerTube.StreamingData].self, from: Data(json.utf8))
+        let formats = responses.flatMap { Extraction.applyDescrambler(streamData: $0) }
+        XCTAssertEqual(formats.map(\.itag), [18, 140])
+        XCTAssertEqual(formats.compactMap(\.url), ["https://example.com/clear-video", "https://example.com/clear-audio"])
+    }
+
+    func testPlayabilityStatusReadsInterstitialErrors() throws {
+        let cases: [(String, Extraction.InitialPlayerResponse.PlayabilityStatus.Status, [String])] = [
+            (#"{"status":"LOGIN_REQUIRED","errorScreen":{"playerInterstitialRenderer":{"content":{"interstitialViewModel":{"title":{"content":"Private video"},"description":{"content":"Please sign in."}}}}}}"#, .loginRequired, ["Private video", "Please sign in."]),
+            (#"{"status":"LOGIN_REQUIRED","reason":"Private video","messages":["This is a private video."]}"#, .loginRequired, ["Private video", "This is a private video."]),
+            (#"{"status":"ERROR"}"#, .error, [])
+        ]
+        for (playabilityStatus, expectedStatus, expectedMessages) in cases {
+            let html = "var ytInitialPlayerResponse = {\"playabilityStatus\":\(playabilityStatus)};"
+            let (status, messages) = try Extraction.playabilityStatus(watchHTML: html)
+            XCTAssertEqual(status, expectedStatus)
+            XCTAssertEqual(messages, expectedMessages)
+        }
+    }
+
+    func testJSURLUsesExtractedPlayerPath() throws {
+        let html = #"ytcfg.set({"STS":20515});var ytInitialPlayerResponse = {};var ytplayer = {"config":{"assets":{"js":"/s/player/6c5cb4f4/player_ias.vflset/en_US/base.js"}}};"#
+        let jsURL = try Extraction.jsURL(html: html)
+        XCTAssertEqual(jsURL, "https://youtube.com/s/player/6c5cb4f4/player_ias.vflset/en_US/base.js")
+    }
+
+    func testSignatureTimestampUsesExtractedValue() throws {
+        let js = "signatureTimestamp:20515"
+        let signatureTimestamp = Extraction.extractSignatureTimestamp(fromJS: js)
+        XCTAssertEqual(signatureTimestamp, 20515)
+    }
+
+    func testSignatureTimestampReturnsNilWhenMissing() throws {
+        let js = "const player = {}"
+        let signatureTimestamp = Extraction.extractSignatureTimestamp(fromJS: js)
+        XCTAssertNil(signatureTimestamp)
+    }
+
+    func testExtractYtCfgParsesEmbeddedEncryptedHostFlags() throws {
+        let html = #"ytcfg.set({"VISITOR_DATA":"visitor","WEB_PLAYER_CONTEXT_CONFIGS":{"WEB_PLAYER_CONTEXT_CONFIG_ID_EMBEDDED_PLAYER":{"encryptedHostFlags":"test-flags"}}});"#
+        let ytcfg = try Extraction.extractYtCfg(from: html)
+        XCTAssertEqual(ytcfg.embeddedPlayerEncryptedHostFlags, "test-flags")
+    }
+    
+}

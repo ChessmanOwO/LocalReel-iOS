@@ -1,0 +1,27 @@
+// Source regression checks only. Real Photos authorization/commit requires iOS.
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const read = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
+let count = 0;
+const check = (condition, name) => { assert.ok(condition, name); count++; };
+const ui = read('App/ContentView.swift');
+const app = read('App/AppModel.swift');
+const share = read('ShareExtension/ShareViewController.swift');
+const storage = read('Shared/VideoStorage.swift');
+check(!/VideoPreview|VideoPlayer|ExportSheet|UIActivityViewController|autoSave|Button\("(?:Xem|Photos|Tệp)/.test(ui), 'no preview/export/manual-save UI');
+check(!/FileExportPicker|UIDocumentPickerViewController|exporting/.test(share), 'no extension file export');
+check(!app.includes('autoSave'), 'Photos saving cannot be disabled');
+const finish = app.slice(app.indexOf('    private func finishSaving('));
+const commit = finish.indexOf('try await VideoStorage.savePhotos(output)');
+check(commit > finish.indexOf('$0.state = .savingPhotos'), 'saving state precedes Photos commit');
+check(finish.indexOf('$0.state = .complete') > commit && finish.indexOf('showSaveSuccess = true') > commit, 'success only after awaited commit');
+check(finish.indexOf('removeItem(at: output)') > commit, 'file not removed before successful commit');
+const retry = app.slice(app.indexOf('    func retry('), app.indexOf('    func cancel('));
+check(!retry.includes('filename = nil') && app.includes('if let existing = file(for: initial)'), 'retry retains pending MP4 and skips extraction');
+check(app.includes('state == .complete && jobs[index].photosSaved != true'), 'old completed downloads are not new Photos receipts');
+check(storage.includes('PHAssetCreationRequest.forAsset()') && storage.includes('try await PHPhotoLibrary.shared().performChanges'), 'uses awaited native Photos transaction');
+check(storage.includes('Cài đặt → LocalReel → Ảnh') && !storage.includes('lưu vào Tệp'), 'permission error has actionable Photos recovery');
+check(share.indexOf('saved = true; message = "Lưu thành công') > share.indexOf('try await VideoStorage.savePhotos(output)'), 'extension success follows commit');
+check(ui.includes('.alert("Lưu thành công"') && !ui.includes('model.autoSave = false'), 'success alert and smoke path match normal flow');
+console.log(`PASS: ${count} Photos-flow source checks. NOT an iOS build or real Photos test.`);

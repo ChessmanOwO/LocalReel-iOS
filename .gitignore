@@ -1,0 +1,30 @@
+# Xcode / Swift build products and user-specific settings
+.DS_Store
+.build/
+.swiftpm/
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Signed binaries and signing material are never source control inputs
+*.ipa
+*.app/
+*.dSYM/
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+*.cer
+*.key
+.env
+.env.*
+!.env.example
+
+# Obsolete duplicate project from the input archive (references missing backend files)
+LocalReel 2.xcodeproj/
+
+# Personal signing configuration
+Config/Local.xcconfig

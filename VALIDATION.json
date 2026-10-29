@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-29",
+  "change": "Automatic direct-link lookup; manual source browser removed",
+  "input": "LocalReel-OnDevice-Xcode.zip source only",
+  "signed_ipa_read": false,
+  "node_capture_assertions_passed": 13,
+  "new_xctest_cases_written": 6,
+  "xctest_run": false,
+  "xcode_build_run": false,
+  "real_iphone_tested": false,
+  "live_ios_download_tested": false,
+  "limits": "Public accessible metadata only; no login, DRM bypass, auto playback or every-link guarantee",
+  "prior_validation": "Input archive validation belongs to old version, not proof for this change",
+  "version": "0.2.2",
+  "photos_only": true,
+  "photos_source_checks_passed": 12,
+  "real_photos_tested": false
+}

@@ -1,0 +1,3 @@
+// Copy to Local.xcconfig; never commit your local settings.
+LOCALREEL_DEVELOPMENT_TEAM = YOUR_TEAM_ID
+LOCALREEL_BUNDLE_ID_PREFIX = com.yourname.localreel
